@@ -78,38 +78,47 @@ def process_repository(repo_url, keywords):
         output_commit_folder = os.path.join(folder_path, commit_sha)
         os.makedirs(output_commit_folder, exist_ok=True)
 
-        # Save the diff for reference
+        # Checkout to the previous commit to save original files
+        checkout_commit(clone_target_dir, prev_commit_sha)
+        changed_files = subprocess.check_output(["git", "diff", "--name-only", commit_sha],
+                                                cwd=clone_target_dir, text=True).splitlines()
+
+        for file_path in changed_files:
+            source_path = os.path.join(clone_target_dir, file_path)
+            original_file_destination_path = os.path.join(output_commit_folder, "original", file_path)
+            os.makedirs(os.path.dirname(original_file_destination_path), exist_ok=True)
+            if os.path.exists(source_path):
+                shutil.copy2(source_path, original_file_destination_path)
+                logging.info(f"Copied original {file_path} for commit {commit_sha}")
+
+        # Checkout to the commit to get the modified version of files
+        checkout_commit(clone_target_dir, commit_sha)
+
+        for file_path in changed_files:
+            source_path = os.path.join(clone_target_dir, file_path)
+            modified_file_destination_path = os.path.join(output_commit_folder, "modified", file_path)
+            os.makedirs(os.path.dirname(modified_file_destination_path), exist_ok=True)
+            shutil.copy2(source_path, modified_file_destination_path)
+            logging.info(f"Copied modified {file_path} for commit {commit_sha}")
+
+        # Save the diff
         diff_output_path = os.path.join(output_commit_folder, f"{commit_sha}_diff.diff")
         with open(diff_output_path, 'w') as diff_file:
             subprocess.run(["git", "diff", prev_commit_sha, commit_sha],
                            stdout=diff_file, stderr=subprocess.STDOUT, cwd=clone_target_dir, check=True)
 
-        # Save the patch for reference
+        # Save the patch
         patch_output_path = os.path.join(output_commit_folder, f"{commit_sha}_patch.patch")
         with open(patch_output_path, 'w') as patch_file:
             subprocess.run(["git", "format-patch", f"{prev_commit_sha}..{commit_sha}", "--stdout"],
                            stdout=patch_file, stderr=subprocess.STDOUT, cwd=clone_target_dir, check=True)
 
-        # Checkout to the commit to get the modified version of files
-        checkout_commit(clone_target_dir, commit_sha)
-
-        # Copy the changed files as their modified versions
-        changed_files = subprocess.check_output(["git", "diff", "--name-only", prev_commit_sha, commit_sha],
-                                                cwd=clone_target_dir, text=True)
-        for file_path in changed_files.splitlines():
-            source_path = os.path.join(clone_target_dir, file_path)
-            modified_file_destination_path = os.path.join(output_commit_folder, "modified", file_path)  # Save in a subdirectory for clarity
-            os.makedirs(os.path.dirname(modified_file_destination_path), exist_ok=True)
-            shutil.copy2(source_path, modified_file_destination_path)
-            logging.info(f"Copied modified {file_path} for commit {commit_sha}")
-
-        # Optionally, revert to the previous commit or the main branch if you need to perform further operations from the original state
-        checkout_commit(clone_target_dir, prev_commit_sha)
-
         logging.info(f"Saved original files, modified files, diff, and patch for commit {commit_sha} in {output_commit_folder}")
 
-        # Run the vulnerability scan on the saved files (both original and modified)
+        # Run the vulnerability scan on the saved files
         run_vulnerability_scan(output_commit_folder)
+
+        # Optionally, checkout back to the main branch or another branch if further operations are needed
 
     # Cleanup: Optionally remove the cloned repository if no longer needed
     shutil.rmtree(clone_target_dir)
