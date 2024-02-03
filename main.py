@@ -117,7 +117,7 @@ def process_repositories(input_file, keywords):
 
 def main():
     input_file = 'repositories.txt'
-    keywords = ['feat']
+    keywords = ['feat', 'create']
     process_repositories(input_file, keywords)
 
 if __name__ == "__main__":
