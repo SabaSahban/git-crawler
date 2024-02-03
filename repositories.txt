@@ -1,2 +1,3 @@
 https://github.com/githubtraining/hellogitworld
 https://github.com/Manni-MinM/odin
+https://github.com/snoopysecurity/Vulnerable-Code-Snippets
