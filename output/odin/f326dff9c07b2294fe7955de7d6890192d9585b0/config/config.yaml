@@ -1,8 +1,0 @@
-server:
-  port: 8000
-
-redis:
-  host: redis
-  port: 6379
-  password: ""
-  dbname: 0
