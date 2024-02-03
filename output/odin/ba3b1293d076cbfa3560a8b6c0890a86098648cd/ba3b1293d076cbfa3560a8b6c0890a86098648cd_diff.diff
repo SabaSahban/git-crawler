@@ -1,0 +1,146 @@
+diff --git a/deploy/helm/odin/templates/api-configmap.yaml b/deploy/helm/odin/templates/api-configmap.yaml
+new file mode 100644
+index 0000000..456a209
+--- /dev/null
++++ b/deploy/helm/odin/templates/api-configmap.yaml
+@@ -0,0 +1,16 @@
++apiVersion: v1
++kind: ConfigMap
++metadata:
++  name: {{ printf "%s-api-config" (include "odin.fullname" .) }}
++  labels:
++    app.kubernetes.io/name: {{ printf "%s-api" (include "odin.name" .) }}
++    {{- include "odin.labels" . | nindent 4 }}
++data:
++  config.yaml: |+
++    api:
++      server:
++        port: {{ .Values.api.service.port }}
++      redis:
++        host: {{ printf "%s-redis-master" (include "odin.fullname" .) }}
++        port: {{ .Values.redis.master.service.ports.redis }}
++        dbname: {{ .Values.redis.dbname }}
+diff --git a/deploy/helm/odin/templates/api-deployment.yaml b/deploy/helm/odin/templates/api-deployment.yaml
+index b7b3afc..8aeccc3 100644
+--- a/deploy/helm/odin/templates/api-deployment.yaml
++++ b/deploy/helm/odin/templates/api-deployment.yaml
+@@ -40,16 +40,29 @@ spec:
+             - name: http
+               containerPort: {{ .Values.api.service.port }}
+               protocol: TCP
+-          livenessProbe:
+-            httpGet:
+-              path: /
+-              port: http
+-          readinessProbe:
+-            httpGet:
+-              path: /
+-              port: http
++          volumeMounts:
++          - name: config-volume
++            mountPath: /app/config
++          env:
++          - name: REDIS_PASSWORD
++            value: {{ .Values.redis.auth.password }}
++          # livenessProbe:
++          #   httpGet:
++          #     path: /
++          #     port: http
++          # readinessProbe:
++          #   httpGet:
++          #     path: /
++          #     port: http
+           resources:
+             {{- toYaml .Values.api.resources | nindent 12 }}
++      volumes:
++        - name: config-volume
++          configMap:
++            name: {{ printf "%s-api-config" (include "odin.fullname" .) }}
++            items:
++            - key: config.yaml
++              path: config.yaml
+       {{- with .Values.api.nodeSelector }}
+       nodeSelector:
+         {{- toYaml . | nindent 8 }}
+diff --git a/deploy/helm/odin/templates/healthcheck-configmap.yaml b/deploy/helm/odin/templates/healthcheck-configmap.yaml
+new file mode 100644
+index 0000000..f8efe70
+--- /dev/null
++++ b/deploy/helm/odin/templates/healthcheck-configmap.yaml
+@@ -0,0 +1,17 @@
++apiVersion: v1
++kind: ConfigMap
++metadata:
++  name: {{ printf "%s-healthcheck-config" (include "odin.fullname" .) }}
++  labels:
++    app.kubernetes.io/name: {{ printf "%s-healthcheck" (include "odin.name" .) }}
++    {{- include "odin.labels" . | nindent 4 }}
++data:
++  config.yaml: |+
++    healthcheck:
++      cron:
++        timeout: 5
++        pattern: "0 * * * * *"
++      redis:
++        host: {{ printf "%s-redis-master" (include "odin.fullname" .) }}
++        port: {{ .Values.redis.master.service.ports.redis }}
++        dbname: {{ .Values.redis.dbname }}
+diff --git a/deploy/helm/odin/templates/healthcheck-deployment.yaml b/deploy/helm/odin/templates/healthcheck-deployment.yaml
+index 0f9ca56..f1d2784 100644
+--- a/deploy/helm/odin/templates/healthcheck-deployment.yaml
++++ b/deploy/helm/odin/templates/healthcheck-deployment.yaml
+@@ -36,16 +36,29 @@ spec:
+             {{- toYaml .Values.healthcheck.securityContext | nindent 12 }}
+           image: "{{ .Values.healthcheck.image.repository }}:{{ .Values.healthcheck.image.tag | default .Chart.AppVersion }}"
+           imagePullPolicy: {{ .Values.healthcheck.image.pullPolicy }}
+-          livenessProbe:
+-            httpGet:
+-              path: /
+-              port: http
+-          readinessProbe:
+-            httpGet:
+-              path: /
+-              port: http
++          volumeMounts:
++          - name: config-volume
++            mountPath: /app/config
++          env:
++          - name: REDIS_PASSWORD
++            value: {{ .Values.redis.auth.password }}
++          # livenessProbe:
++          #   httpGet:
++          #     path: /
++          #     port: http
++          # readinessProbe:
++          #   httpGet:
++          #     path: /
++          #     port: http
+           resources:
+             {{- toYaml .Values.healthcheck.resources | nindent 12 }}
++      volumes:
++        - name: config-volume
++          configMap:
++            name: {{ printf "%s-healthcheck-config" (include "odin.fullname" .) }}
++            items:
++            - key: config.yaml
++              path: config.yaml
+       {{- with .Values.healthcheck.nodeSelector }}
+       nodeSelector:
+         {{- toYaml . | nindent 8 }}
+diff --git a/deploy/helm/odin/values.yaml b/deploy/helm/odin/values.yaml
+index fb0f022..aaba829 100644
+--- a/deploy/helm/odin/values.yaml
++++ b/deploy/helm/odin/values.yaml
+@@ -1,3 +1,12 @@
++redis:
++  auth:
++    password: pashmak64bit
++  master:
++    service:
++      ports:
++        redis: 6379
++  dbname: 0
++
+ api:
+   replicaCount: 3
+ 

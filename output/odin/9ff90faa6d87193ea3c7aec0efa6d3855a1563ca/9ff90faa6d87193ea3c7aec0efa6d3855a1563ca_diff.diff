@@ -1,0 +1,45 @@
+diff --git a/config/config.yaml b/config/config.yaml
+index 49c963a..7b42989 100644
+--- a/config/config.yaml
++++ b/config/config.yaml
+@@ -3,7 +3,7 @@ api:
+     port: 8000
+ 
+   redis:
+-    host: localhost #redis
++    host: redis
+     port: 6379
+     password: ""
+     dbname: 0
+@@ -11,10 +11,10 @@ api:
+ healthcheck:
+   cron:
+     timeout: 5
+-    pattern: "*/5 * * * * *"
++    pattern: "* * * * * *"
+ 
+   redis:
+-    host: localhost #redis
++    host: redis
+     port: 6379
+     password: ""
+     dbname: 0
+diff --git a/deployments/docker-compose.yaml b/deployments/docker-compose.yaml
+index ddb489e..dcd9310 100644
+--- a/deployments/docker-compose.yaml
++++ b/deployments/docker-compose.yaml
+@@ -12,5 +12,14 @@ services:
+     depends_on:
+       - redis
+ 
++  odin-healthcheck:
++    build:
++      context: ../
++      dockerfile: ./build/healthcheck/Dockerfile
++    volumes:
++      - ../config:/app/config
++    depends_on:
++      - redis
++
+   redis:
+     image: redis:latest

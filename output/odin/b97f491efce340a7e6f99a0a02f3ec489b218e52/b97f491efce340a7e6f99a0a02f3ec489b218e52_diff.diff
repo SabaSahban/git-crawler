@@ -1,0 +1,299 @@
+diff --git a/build/cron/Dockerfile b/build/cron/Dockerfile
+deleted file mode 100644
+index db84081..0000000
+--- a/build/cron/Dockerfile
++++ /dev/null
+@@ -1,14 +0,0 @@
+-FROM golang:alpine AS builder
+-
+-WORKDIR /app
+-COPY ./ ./
+-
+-WORKDIR /app/cmd/odin-cron
+-RUN go build -o odin-cron
+-
+-FROM alpine:latest
+-
+-WORKDIR /app
+-COPY --from=builder /app/cmd/odin-cron/odin-cron .
+-
+-ENTRYPOINT ["./odin-cron"]
+diff --git a/build/healthcheck/Dockerfile b/build/healthcheck/Dockerfile
+new file mode 100644
+index 0000000..3d5f520
+--- /dev/null
++++ b/build/healthcheck/Dockerfile
+@@ -0,0 +1,14 @@
++FROM golang:alpine AS builder
++
++WORKDIR /app
++COPY ./ ./
++
++WORKDIR /app/cmd/odin-healthcheck
++RUN go build -o odin-healthcheck
++
++FROM alpine:latest
++
++WORKDIR /app
++COPY --from=builder /app/cmd/odin-healthcheck/odin-healthcheck .
++
++ENTRYPOINT ["./odin-healthcheck"]
+diff --git a/cmd/odin-cron/root.go b/cmd/odin-cron/root.go
+deleted file mode 100644
+index e69de29..0000000
+diff --git a/cmd/odin-healthcheck/root.go b/cmd/odin-healthcheck/root.go
+new file mode 100644
+index 0000000..df7e485
+--- /dev/null
++++ b/cmd/odin-healthcheck/root.go
+@@ -0,0 +1,53 @@
++package main
++
++import (
++    "os"
++    "log"
++    "syscall"
++    "os/signal"
++
++	"github.com/Manni-MinM/odin/internal/model"
++	"github.com/Manni-MinM/odin/internal/config"
++	"github.com/Manni-MinM/odin/internal/database"
++	"github.com/Manni-MinM/odin/internal/healthcheck"
++)
++
++func main() {
++    logger := log.New(os.Stdout, "[Healthcheck] ", log.Ldate|log.Ltime)
++
++    logger.Println("Initiaing Healthcheck service")
++
++    conf, err := config.Load()
++    if err != nil {
++        logger.Fatal(err)
++    }
++
++    hcConf := conf.HealthCheck
++
++    db, err := database.RedisConn(hcConf.Redis)
++    if err != nil {
++        logger.Fatal(err)
++    }
++
++    repo := model.NewRedisServerHealthRepo(db)
++
++    scheduler := healthcheck.NewHealthCheckScheduler(
++        healthcheck.NewHTTPHealthCheck(repo, hcConf.Cron),
++        hcConf.Cron,
++    )
++
++    go func() {
++        err := scheduler.Start()
++        if err != nil {
++            logger.Fatal(err)
++        }
++    }()
++
++    signalCh := make(chan os.Signal, 1)
++	signal.Notify(signalCh, os.Interrupt, syscall.SIGINT, syscall.SIGTERM)
++
++    signal := <-signalCh
++    logger.Printf("received shutdown signal: %v. initiating graceful shutdown\n", signal)
++
++    scheduler.Stop()
++}
+diff --git a/config/config.yaml b/config/config.yaml
+index 168dd58..49c963a 100644
+--- a/config/config.yaml
++++ b/config/config.yaml
+@@ -3,11 +3,18 @@ api:
+     port: 8000
+ 
+   redis:
+-    host: redis
++    host: localhost #redis
+     port: 6379
+     password: ""
+     dbname: 0
+ 
+ healthcheck:
+-  timeout: 5
+-  cron: "*/5 * * * * *"
++  cron:
++    timeout: 5
++    pattern: "*/5 * * * * *"
++
++  redis:
++    host: localhost #redis
++    port: 6379
++    password: ""
++    dbname: 0
+diff --git a/go.mod b/go.mod
+index 70bf679..e3bb450 100644
+--- a/go.mod
++++ b/go.mod
+@@ -6,6 +6,7 @@ require (
+ 	github.com/go-redis/redis v6.15.9+incompatible
+ 	github.com/google/uuid v1.4.0
+ 	github.com/labstack/echo/v4 v4.11.4
++	github.com/robfig/cron/v3 v3.0.1
+ 	github.com/spf13/viper v1.18.2
+ )
+ 
+diff --git a/go.sum b/go.sum
+index 78aa4e2..10aea56 100644
+--- a/go.sum
++++ b/go.sum
+@@ -63,6 +63,8 @@ github.com/pelletier/go-toml/v2 v2.1.0/go.mod h1:tJU2Z3ZkXwnxa4DPO899bsyIoywizdU
+ github.com/pmezard/go-difflib v1.0.0/go.mod h1:iKH77koFhYxTK1pcRnkKkqfTogsbg7gZNVY4sRDYZ/4=
+ github.com/pmezard/go-difflib v1.0.1-0.20181226105442-5d4384ee4fb2 h1:Jamvg5psRIccs7FGNTlIRMkT8wgtp5eCXdBlqhYGL6U=
+ github.com/pmezard/go-difflib v1.0.1-0.20181226105442-5d4384ee4fb2/go.mod h1:iKH77koFhYxTK1pcRnkKkqfTogsbg7gZNVY4sRDYZ/4=
++github.com/robfig/cron/v3 v3.0.1 h1:WdRxkvbJztn8LMz/QEvLN5sBU+xKpSqwwUO1Pjr4qDs=
++github.com/robfig/cron/v3 v3.0.1/go.mod h1:eQICP3HwyT7UooqI/z+Ov+PtYAWygg1TEWWzGIFLtro=
+ github.com/rogpeppe/go-internal v1.9.0 h1:73kH8U+JUqXU8lRuOHeVHaa/SZPifC7BkcraZVejAe8=
+ github.com/rogpeppe/go-internal v1.9.0/go.mod h1:WtVeX8xhTBvf0smdhujwtBcq4Qrzq/fJaraNFVN+nFs=
+ github.com/sagikazarmark/locafero v0.4.0 h1:HApY1R9zGo4DBgr7dqsTH/JJxLTTsOt7u6keLGt6kNQ=
+diff --git a/internal/config/config.go b/internal/config/config.go
+index 0adf778..59a417b 100644
+--- a/internal/config/config.go
++++ b/internal/config/config.go
+@@ -27,8 +27,14 @@ type (
+     }
+ 
+     HealthCheck struct {
+-        Timeout         int          `mapstructure:"timeout"`
+-        Cron            string          `mapstructure:"cron"`
++        Redis           Redis           `mapstructure:"redis"`
++        Cron            Cron            `mapstructure:"cron"`
++
++    }
++
++    Cron struct {
++        Timeout         int             `mapstructure:"timeout"`
++        Pattern         string          `mapstructure:"pattern"`
+     }
+ )
+ 
+diff --git a/internal/healthcheck/cron.go b/internal/healthcheck/cron.go
+index 8f4b136..51387a2 100644
+--- a/internal/healthcheck/cron.go
++++ b/internal/healthcheck/cron.go
+@@ -1,7 +1,38 @@
+ package healthcheck
+ 
+ import (
++	"context"
+ 
++	"github.com/Manni-MinM/odin/internal/config"
++
++	"github.com/robfig/cron/v3"
+ )
+ 
+-// TODO
++type HealthCheckScheduler struct {
++    pattern         string
++    scheduler       *cron.Cron
++    checker         HealthChecker
++}
++
++func NewHealthCheckScheduler(checker HealthChecker, conf config.Cron) *HealthCheckScheduler {
++    return &HealthCheckScheduler {
++        pattern: conf.Pattern,
++        scheduler: cron.New(cron.WithSeconds()),
++        checker: checker,
++    }
++}
++
++func (hcs *HealthCheckScheduler) Start() error {
++    _, err := hcs.scheduler.AddFunc(hcs.pattern, hcs.checker.Checkup)
++    if err != nil {
++        return err
++    }
++
++    hcs.scheduler.Start()
++
++    return nil
++}
++
++func (hcs *HealthCheckScheduler) Stop() context.Context {
++    return hcs.scheduler.Stop()
++}
+diff --git a/internal/healthcheck/healthcheck.go b/internal/healthcheck/healthcheck.go
+index e9ee5e1..6353e54 100644
+--- a/internal/healthcheck/healthcheck.go
++++ b/internal/healthcheck/healthcheck.go
+@@ -1,30 +1,38 @@
+ package healthcheck
+ 
+ import (
++    "os"
++    "log"
+     "time"
+ 	"net/http"
+ 
+ 	"github.com/Manni-MinM/odin/internal/config"
++	"github.com/Manni-MinM/odin/internal/model"
+ )
+ 
+ type HealthChecker interface {
+-    Healthy(string) bool
++    Healthy(string) (bool, error)
++    Checkup()
+ }
+ 
+ type HTTPHealthCheck struct {
+-    *http.Client
++    client      *http.Client
++    repo        model.ServerHealthRepo
++    logger      *log.Logger
+ }
+ 
+-func NewHTTPHealthCheck(conf config.HealthCheck) *HTTPHealthCheck {
++func NewHTTPHealthCheck(repo model.ServerHealthRepo, conf config.Cron) *HTTPHealthCheck {
+     client := &http.Client{
+         Timeout: time.Duration(conf.Timeout) * time.Second,
+     }
+ 
+-    return &HTTPHealthCheck{client}
++    logger := log.New(os.Stdout, "[HealthChecker] ", log.Ldate|log.Ltime)
++
++    return &HTTPHealthCheck{client, repo, logger}
+ }
+ 
+ func (hc *HTTPHealthCheck) Healthy(url string) (bool, error) {
+-    resp, err := hc.Get(url)
++    resp, err := hc.client.Get(url)
+     if err != nil {
+         return false, err
+     }
+@@ -35,3 +43,32 @@ func (hc *HTTPHealthCheck) Healthy(url string) (bool, error) {
+ 
+     return true, nil
+ }
++
++func (hc *HTTPHealthCheck) Checkup() {
++    shMap, err := hc.repo.GetAll()
++    if err != nil {
++        hc.logger.Println(err)
++    } 
++
++    for id, sh := range(shMap) {
++        isHealthy, err := hc.Healthy(sh.Address)
++        if err != nil {
++            hc.logger.Println(err)
++        } else if isHealthy {
++            hc.logger.Printf("Get request on \"%v\" successful\n", sh.Address)
++        } else {
++            hc.logger.Printf("Get request on \"%v\" failed\n", sh.Address)
++        }
++
++        switch isHealthy {
++        case true:
++            err = hc.repo.IncrementSuccessByID(id)
++        case false:
++            err = hc.repo.IncrementFailureByID(id)
++        }
++
++        if err != nil {
++            hc.logger.Println(err)
++        }
++    }
++}

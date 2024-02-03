@@ -1,0 +1,28 @@
+diff --git a/src/Main.groovy b/src/Main.groovy
+index 6336e96..6191a10 100644
+--- a/src/Main.groovy
++++ b/src/Main.groovy
+@@ -1,5 +1,6 @@
+ import static Square.square
+ import static Division.divide
++import static Subtract.subtract
+ import static Sum.sum
+ 
+ def name = "Matthew"
+@@ -9,4 +10,5 @@ println "Hello ${name}"
+ println "${name} has at least ${programmingPoints} programming points."
+ println "${programmingPoints} squared is ${square(programmingPoints)}"
+ println "${programmingPoints} divided by 2 bonus points is ${divide(programmingPoints, 2)}"
++println "${programmingPoints} minus 7 bonus points is ${subtract(programmingPoints, 7)}"
+ println "${programmingPoints} plus 3 bonus points is ${sum(programmingPoints, 3)}"
+\ No newline at end of file
+diff --git a/src/Subtract.groovy b/src/Subtract.groovy
+new file mode 100644
+index 0000000..726e525
+--- /dev/null
++++ b/src/Subtract.groovy
+@@ -0,0 +1,3 @@
++static int subtract(int val1, val2) {
++    val1 - val2
++}
+\ No newline at end of file

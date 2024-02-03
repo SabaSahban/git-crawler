@@ -1,0 +1,249 @@
+diff --git a/Dockerfile b/Dockerfile
+new file mode 100644
+index 0000000..922d373
+--- /dev/null
++++ b/Dockerfile
+@@ -0,0 +1,14 @@
++FROM golang:alpine AS builder
++
++WORKDIR /app
++COPY ./ ./
++
++RUN go build -o odin
++
++FROM alpine:latest
++
++WORKDIR /app
++COPY --from=builder /app/odin .
++
++EXPOSE 8000
++ENTRYPOINT ["./odin"]
+diff --git a/config/config.yaml b/config/config.yaml
+index bdc51b9..9b2de8e 100644
+--- a/config/config.yaml
++++ b/config/config.yaml
+@@ -2,7 +2,7 @@ server:
+   port: 8000
+ 
+ redis:
+-  host: redis
++  host: localhost #redis
+   port: 6379
+   password: ""
+   dbname: 0
+diff --git a/deployments/docker-compose.yaml b/deployments/docker-compose.yaml
+index 71c29c6..cd831bd 100644
+--- a/deployments/docker-compose.yaml
++++ b/deployments/docker-compose.yaml
+@@ -3,11 +3,12 @@ version: "3.9"
+ services:
+   odin:
+     build:
+-      context: .
++      context: ../
++      dockerfile: ./Dockerfile
+     ports:
+       - 8000:8000
+     volumes:
+-      - ../configs:/app/configs
++      - ../config:/app/config
+     depends_on:
+       - redis
+ 
+diff --git a/go.mod b/go.mod
+index 6fab9eb..70bf679 100644
+--- a/go.mod
++++ b/go.mod
+@@ -11,6 +11,7 @@ require (
+ 
+ require (
+ 	github.com/fsnotify/fsnotify v1.7.0 // indirect
++	github.com/golang-jwt/jwt v3.2.2+incompatible // indirect
+ 	github.com/hashicorp/hcl v1.0.0 // indirect
+ 	github.com/labstack/gommon v0.4.2 // indirect
+ 	github.com/magiconair/properties v1.8.7 // indirect
+@@ -36,6 +37,7 @@ require (
+ 	golang.org/x/net v0.19.0 // indirect
+ 	golang.org/x/sys v0.15.0 // indirect
+ 	golang.org/x/text v0.14.0 // indirect
++	golang.org/x/time v0.5.0 // indirect
+ 	gopkg.in/ini.v1 v1.67.0 // indirect
+ 	gopkg.in/yaml.v3 v3.0.1 // indirect
+ )
+diff --git a/go.sum b/go.sum
+index cb602f3..78aa4e2 100644
+--- a/go.sum
++++ b/go.sum
+@@ -11,6 +11,8 @@ github.com/fsnotify/fsnotify v1.7.0/go.mod h1:40Bi/Hjc2AVfZrqy+aj+yEI+/bRxZnMJyT
+ github.com/go-redis/redis v6.15.9+incompatible h1:K0pv1D7EQUjfyoMql+r/jZqCLizCGKFlFgcHWWmHQjg=
+ github.com/go-redis/redis v6.15.9+incompatible/go.mod h1:NAIEuMOZ/fxfXJIrKDQDz8wamY7mA7PouImQ2Jvg6kA=
+ github.com/go-task/slim-sprig v0.0.0-20210107165309-348f09dbbbc0/go.mod h1:fyg7847qk6SyHyPtNmDHnmrv/HOrqktSC+C9fM+CJOE=
++github.com/golang-jwt/jwt v3.2.2+incompatible h1:IfV12K8xAKAnZqdXVzCZ+TOjboZ2keLg81eXfW3O+oY=
++github.com/golang-jwt/jwt v3.2.2+incompatible/go.mod h1:8pz2t5EyA70fFQQSrl6XZXzqecmYZeUEB8OUGHkxJ+I=
+ github.com/golang/protobuf v1.2.0/go.mod h1:6lQm79b+lXiMfvg/cZm0SGofjICqVBUtrP5yJMmIC1U=
+ github.com/golang/protobuf v1.4.0-rc.1/go.mod h1:ceaxUfeHdC40wWswd/P6IGgMaK3YpKi5j83Wpe3EHw8=
+ github.com/golang/protobuf v1.4.0-rc.1.0.20200221234624-67d41d38c208/go.mod h1:xKAWHe0F5eneWXFV3EuXVDTCmh+JuBKY0li0aMyXATA=
+@@ -132,6 +134,8 @@ golang.org/x/text v0.3.0/go.mod h1:NqM8EUOU14njkJ3fqMW+pc6Ldnwhi/IjpwHt7yyuwOQ=
+ golang.org/x/text v0.3.3/go.mod h1:5Zoc/QRtKVWzQhOtBMvqHzDpF6irO9z98xDceosuGiQ=
+ golang.org/x/text v0.14.0 h1:ScX5w1eTa3QqT8oi6+ziP7dTV1S2+ALU0bI+0zXKWiQ=
+ golang.org/x/text v0.14.0/go.mod h1:18ZOQIKpY8NJVqYksKHtTdi31H5itFRjB5/qKTNYzSU=
++golang.org/x/time v0.5.0 h1:o7cqy6amK/52YcAKIPlM3a+Fpj35zvRj2TP+e1xFSfk=
++golang.org/x/time v0.5.0/go.mod h1:3BpzKBy/shNhVucY/MWOyx10tF3SFh9QdLuxbVysPQM=
+ golang.org/x/tools v0.0.0-20180917221912-90fa682c2a6e/go.mod h1:n7NCudcB/nEzxVGmLbDWY5pfWTLqBcC2KZ6jyYvM4mQ=
+ golang.org/x/tools v0.0.0-20191119224855-298f0cb1881e/go.mod h1:b+2E5dAYhXwXZwtnZ6UAqBI28+e2cm9otk0dWdXHAEo=
+ golang.org/x/tools v0.0.0-20201224043029-2b0845dc783e/go.mod h1:emZCQorbCU4vsT4fOWvOPXz4eW1wZW4PmDk9uLelYpA=
+diff --git a/internal/database/redis.go b/internal/database/redis.go
+index e08d8dc..5f8d5d3 100644
+--- a/internal/database/redis.go
++++ b/internal/database/redis.go
+@@ -2,7 +2,6 @@ package database
+ 
+ import (
+     "fmt"
+-    "context"
+ 
+     "github.com/Manni-MinM/odin/internal/config"
+ 
+@@ -13,17 +12,15 @@ type RedisDB struct {
+     client    *redis.Client
+ }
+ 
+-func RedisConn(conf config.RedisConfig) (Database, error) {
+-    addr := fmt.Sprintf("%v:%v", conf.Addr, conf.Port)
++func RedisConn(conf config.Redis) (*RedisDB, error) {
++    addr := fmt.Sprintf("%v:%v", conf.Host, conf.Port)
+     client := redis.NewClient(&redis.Options{
+         Addr: addr,
+         Password: "",
+         DB: 0,
+     })
+ 
+-    ctx := context.Background()
+-
+-    err := client.Ping(ctx).Err()
++    err := client.Ping().Err()
+     if err != nil {
+         return nil, err
+     }
+@@ -51,13 +48,16 @@ func (rdb *RedisDB) GetAllValues() ([]string, error) {
+ 		return nil, err
+ 	}
+ 
+-	return values, nil
++    valueList := []string{}
++    for _, val := range(values) {
++        valueList = append(valueList, val.(string))
++	}
++
++	return valueList, nil
+ }
+ 
+ func (rdb *RedisDB) Get(key string) (string, error) {
+-    ctx := context.Background()
+-
+-    val, err := rdb.client.Get(ctx, key).Result()
++    val, err := rdb.client.Get(key).Result()
+     if err == redis.Nil || err != nil {
+         return "", err
+     }
+@@ -66,9 +66,7 @@ func (rdb *RedisDB) Get(key string) (string, error) {
+ }
+ 
+ func (rdb *RedisDB) Set(key string, val string) (string, error) {
+-    ctx := context.Background()
+-
+-    err := rdb.client.Set(ctx, key, val, 0).Err()
++    err := rdb.client.Set(key, val, 0).Err()
+     if err == redis.Nil || err != nil {
+         return "", err
+     }
+diff --git a/internal/handler/server_health.go b/internal/handler/server_health.go
+index b8908ea..46c882d 100644
+--- a/internal/handler/server_health.go
++++ b/internal/handler/server_health.go
+@@ -52,7 +52,8 @@ func (h *ServerHealthHandler) Create(ctx echo.Context) error {
+ func (h *ServerHealthHandler) GetAll(ctx echo.Context) error {
+     serverHealthMap, err := h.repo.GetAll()
+     if err != nil {
+-        msg := map[string]string{"message": "Internal Server Error"}
++        msg := map[string]string{"message": err.Error()}
++        // msg := map[string]string{"message": "Internal Server Error"}
+         return ctx.JSON(http.StatusInternalServerError, msg)
+     }
+ 
+@@ -66,8 +67,8 @@ func (h *ServerHealthHandler) GetAll(ctx echo.Context) error {
+ 
+ 
+ func (h *ServerHealthHandler) Get(ctx echo.Context) error {
+-    id, err := ctx.Param("id")
+-    if err != nil {
++    id := ctx.Param("id")
++    if id == "" {
+         return ctx.JSON(http.StatusBadRequest, map[string]string{"message": "Bad Request"})
+     }
+ 
+diff --git a/internal/model/server_health.go b/internal/model/server_health.go
+index 5e00e20..0b26f5a 100644
+--- a/internal/model/server_health.go
++++ b/internal/model/server_health.go
+@@ -17,7 +17,7 @@ type ServerHealth struct {
+ 
+ type ServerHealthRepo interface {
+     Create(*ServerHealth) (error)
+-    GetAll() ([]ServerHealth, error)
++    GetAll() (map[string]ServerHealth, error)
+     GetByID(string) (ServerHealth, error)
+ }
+ 
+diff --git a/main.go b/main.go
+new file mode 100644
+index 0000000..217b826
+--- /dev/null
++++ b/main.go
+@@ -0,0 +1,46 @@
++package main
++
++import (
++	"fmt"
++
++	"github.com/Manni-MinM/odin/internal/config"
++	"github.com/Manni-MinM/odin/internal/database"
++	"github.com/Manni-MinM/odin/internal/handler"
++	"github.com/Manni-MinM/odin/internal/model"
++
++	"github.com/labstack/echo/v4"
++	"github.com/labstack/echo/v4/middleware"
++)
++
++func main() {
++    srv := echo.New()
++
++    srv.Use(middleware.Logger())
++	srv.Use(middleware.Recover())
++
++    conf, err := config.Load()
++    if err != nil {
++        srv.Logger.Fatal(err)
++    }
++
++    db, err := database.RedisConn(conf.Redis)
++    if err != nil {
++        srv.Logger.Fatal(err)
++    }
++
++    serverHealthHandler := handler.NewHTTPServerHealthHandler(model.NewRedisServerHealthRepo(db))
++
++    api := srv.Group("/api")
++
++    api.POST("/server/", serverHealthHandler.Create)
++    api.GET("/server/", serverHealthHandler.Get)
++    api.GET("/server/all/", serverHealthHandler.GetAll)
++
++    srvConf := conf.Server
++    srvAddr := fmt.Sprintf(":%v", srvConf.Port)
++
++    err = srv.Start(srvAddr)
++    if err != nil {
++        srv.Logger.Fatal(err)
++    }
++}

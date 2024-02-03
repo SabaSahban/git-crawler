@@ -1,0 +1,54 @@
+diff --git a/config/config.yaml b/config/config.yaml
+index 7b42989..02d40f3 100644
+--- a/config/config.yaml
++++ b/config/config.yaml
+@@ -11,7 +11,7 @@ api:
+ healthcheck:
+   cron:
+     timeout: 5
+-    pattern: "* * * * * *"
++    pattern: "0 * * * * *"
+ 
+   redis:
+     host: redis
+diff --git a/internal/config/config.go b/internal/config/config.go
+index 59a417b..95def7f 100644
+--- a/internal/config/config.go
++++ b/internal/config/config.go
+@@ -22,8 +22,8 @@ type (
+     Redis struct {
+         Host            string          `mapstructure:"host"`
+         Port            int             `mapstructure:"port"`
+-        Password        string          `mapstructure:"password"`
+-        DBName          string          `mapstructure:"dbname"`
++        DBName          int             `mapstructure:"dbname"`
++        Password        string
+     }
+ 
+     HealthCheck struct {
+@@ -54,5 +54,10 @@ func Load() (*Config, error) {
+ 		return &Config{}, err
+ 	}
+ 
++    viper.AutomaticEnv()
++
++    conf.API.Redis.Password = viper.GetString("REDIS_PASSWORD")
++    conf.HealthCheck.Redis.Password = viper.GetString("REDIS_PASSWORD")
++
+ 	return &conf, nil
+ }
+diff --git a/internal/database/redis.go b/internal/database/redis.go
+index de2e344..3302ca3 100644
+--- a/internal/database/redis.go
++++ b/internal/database/redis.go
+@@ -16,8 +16,8 @@ func RedisConn(conf config.Redis) (*RedisDB, error) {
+     addr := fmt.Sprintf("%v:%v", conf.Host, conf.Port)
+     client := redis.NewClient(&redis.Options{
+         Addr: addr,
+-        Password: "",
+-        DB: 0,
++        Password: conf.Password,
++        DB: conf.DBName,
+     })
+ 
+     err := client.Ping().Err()
